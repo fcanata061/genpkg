@@ -1,0 +1,216 @@
+==============================
+ TUTORIAL COMPLETO DO GENPKG
+==============================
+
+--------------------------------
+1. INSTALAÇÃO E CONFIGURAÇÃO
+--------------------------------
+
+Dependências necessárias (Ubuntu/Debian):
+  sudo apt install python3 python3-yaml python3-colorama git patch tar xz-utils fakeroot build-essential
+
+No Linux From Scratch (LFS) garanta:
+  - gcc
+  - make
+  - tar
+  - xz
+  - gzip
+  - git
+  - patch
+  - fakeroot
+  - python3 + PyYAML + colorama
+
+Baixar o genpkg:
+  git clone https://seu-repo/genpkg.git
+  cd genpkg
+
+Executar ajuda:
+  python genpkg.py --help
+
+
+--------------------------------
+2. ÁRVORE DE DIRETÓRIOS
+--------------------------------
+
+Por padrão o genpkg cria na HOME:
+
+~/.genpkg/
+ ├── bin/        (atalhos para programas instalados)
+ ├── build/      (workdirs temporários de compilação)
+ ├── logs/       (logs de compilação e instalação)
+ ├── packages/   (arquivos .tar.gz empacotados antes da instalação)
+ ├── repo/       (recipes organizadas em subpastas)
+ └── sources/    (fontes baixadas .tar.gz, .xz, etc)
+
+Recipes ficam em:
+  ~/.genpkg/repo/<pacote>/<pacote>.yml
+
+
+--------------------------------
+3. PRINCIPAIS COMANDOS
+--------------------------------
+
+Instalar um pacote:
+  python genpkg.py install <pacote>
+
+Instalar com strip (remove símbolos dos binários):
+  python genpkg.py install <pacote> --strip
+
+Remover um pacote:
+  python genpkg.py remove <pacote>
+
+Upgrade de um pacote:
+  python genpkg.py upgrade <pacote>
+
+Upgrade de todo o sistema:
+  python genpkg.py upgrade --all
+
+Recompilar um pacote:
+  python genpkg.py rebuild <pacote>
+
+Recompilar todo o sistema:
+  python genpkg.py rebuild --all
+
+Informações de um pacote:
+  python genpkg.py info <pacote>
+
+Buscar pacotes:
+  python genpkg.py search <nome>
+
+Sincronizar recipes do repositório git:
+  python genpkg.py sync
+
+Limpar diretórios de compilação:
+  python genpkg.py clean
+  python genpkg.py clean --all
+
+
+--------------------------------
+4. EXEMPLOS DE RECIPES
+--------------------------------
+
+==== 4.1 GCC ====
+
+recipes/gcc/gcc.yml
+-------------------
+nome: gcc
+versão: 13.2.0
+url: https://ftp.gnu.org/gnu/gcc/gcc-13.2.0/gcc-13.2.0.tar.xz
+sha256: 9a2227a5c3eeb2e186e2c4d0f7d527969b5f364a7e06e5e853ee1bc74d2cbaed
+
+dependencias:
+  - gmp
+  - mpfr
+  - mpc
+  - isl
+
+comandos:
+  - ./configure --prefix=/usr --disable-multilib --enable-languages=c,c++
+  - make -j$(nproc)
+  - make install
+
+
+==== 4.2 GLIBC ====
+
+recipes/glibc/glibc.yml
+-----------------------
+nome: glibc
+versão: 2.40
+url: http://ftp.gnu.org/gnu/libc/glibc-2.40.tar.xz
+sha256: 41e4df75c6e186f9f4a0f8ac12f4b1d7f8f9aeeafc9a36d94c1639f43e39f2e2
+
+dependencias:
+  - linux-headers
+
+comandos:
+  - mkdir build && cd build
+  - ../configure --prefix=/usr
+  - make -j$(nproc)
+  - make install
+
+
+==== 4.3 BASH ====
+
+recipes/bash/bash.yml
+---------------------
+nome: bash
+versão: 5.2.21
+url: https://ftp.gnu.org/gnu/bash/bash-5.2.21.tar.gz
+sha256: 7b7d69d2780dd84b1c6d1e8f5fa69db0e4b3fbb9e9dc3bba5f5a54a8c3d44c5f
+
+dependencias:
+  - ncurses
+
+comandos:
+  - ./configure --prefix=/usr --without-bash-malloc
+  - make -j$(nproc)
+  - make install
+
+
+--------------------------------
+5. RECIPE EXEMPLAR (TUDO SUPORTADO)
+--------------------------------
+
+recipes/exemplo/exemplo.yml
+---------------------------
+nome: exemplo
+versão: 1.0.0
+url: https://exemplo.org/exemplo-1.0.0.tar.gz
+sha256: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+
+dependencias:
+  - libfoo
+  - libbar
+
+pre_install:
+  - useradd -r -s /bin/false exemplo
+  - mkdir -p /var/lib/exemplo
+
+comandos:
+  - ./configure --prefix=/usr --enable-feature-x
+  - make -j$(nproc)
+  - make install
+
+post_install:
+  - ln -svf /usr/bin/exemplo /usr/local/bin/exemplo
+  - systemctl daemon-reload
+
+pre_remove:
+  - systemctl stop exemplo || true
+
+post_remove:
+  - userdel exemplo || true
+  - rm -rf /var/lib/exemplo
+
+
+--------------------------------
+6. FLUXO PARA CRIAR UMA TOOLCHAIN
+--------------------------------
+
+1. Instalar Linux headers
+   python genpkg.py install linux-headers
+
+2. Instalar glibc
+   python genpkg.py install glibc
+
+3. Instalar gcc
+   python genpkg.py install gcc
+
+4. Instalar bash (para shell)
+   python genpkg.py install bash
+
+5. Verificar:
+   gcc --version
+   bash --version
+
+
+--------------------------------
+7. RESUMO
+--------------------------------
+
+- genpkg é um gerenciador simples para LFS baseado em recipes YAML.
+- Funciona com DESTDIR, empacotamento, hooks e dependências.
+- Recipes ficam em ~/.genpkg/repo/<pacote>/<pacote>.yml
+- Comandos principais: install, remove, rebuild, upgrade, info, search, sync, clean.
+- Fluxo de toolchain: linux-headers → glibc → gcc → bash.
+- Recipes podem incluir pre/post install/remove para máxima flexibilidade.
